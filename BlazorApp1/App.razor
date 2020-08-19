@@ -1,0 +1,31 @@
+@inject IJSRuntime JSRuntime;
+
+<div id="content">
+	<Header @bind-QuizTheme="QuizTheme" />
+	<QuestionBoard QuizTheme="QuizTheme" TargetLavel="Level" OnAnswerSelection="async (r)=> await Result(r)"/>
+</div>
+
+@code{
+	private int Level { get; set; }
+	private int QuizTheme { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		var currentLevel = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentLevel");
+		if (!string.IsNullOrEmpty(currentLevel) && int.TryParse(currentLevel, out int triedLevel))
+		{
+			Level = triedLevel;
+		};
+		QuizTheme = 0;
+	}
+
+	protected async Task Result(bool r)
+	{
+		var newLevel = r ? Level + 1 : 0;
+		await JSRuntime.InvokeAsync<string>("localStorage.setItem", "currentLevel", newLevel);
+		await Task.Delay(1000);
+		Console.WriteLine("1 second pass");
+		Level = newLevel;
+		base.StateHasChanged(); //Changing level no longer rerendering the thing...idk why, I assume its because I changed the OnAnswerSelection from event to action, >Parameter change doesnt update components
+	}
+}

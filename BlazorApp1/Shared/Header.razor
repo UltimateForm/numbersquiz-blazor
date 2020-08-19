@@ -1,0 +1,16 @@
+﻿<header>
+	<span class="enable_pointer_events" @onclick="changeTheme">Switch to @(QuizTheme == 0? "Trivia" : "Math")</span>
+	<!-- 0=Math, 1=Trivia -->
+</header>
+
+@code {
+	[Parameter]
+	public int QuizTheme { get; set; }
+	[Parameter]
+	public EventCallback<int> QuizThemeChanged { get; set; }
+
+	private void changeTheme(MouseEventArgs e)
+	{
+		QuizThemeChanged.InvokeAsync(QuizTheme == 0 ? 1 : 0);
+	}
+}

@@ -1,0 +1,121 @@
+﻿@using Microsoft.Extensions.Configuration
+@using System.Text.RegularExpressions
+@using System.Threading
+@inject BlazorApp1.Data.Interfaces.INumbersAPIService numbersAPI
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime;
+
+
+<div id="question_board" class="enable_pointer_events hide" @ref="Board">
+	<h1 id="question_title" @ref="Title">@EffectiveLevel</h1>
+	<div id="answers_grid" @ref="AnswersGrid">
+		@for (int i = 0; i < Answers.Length; i++)
+		{
+			int answerNum = i;
+			<div @onclick="@(e=> AnswerClick(e, answerNum))" @ref="AnswerComponent">
+				@Answers[i]
+			</div>
+		}
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public int TargetLavel { get; set; }
+	[Parameter]
+	public Action<bool> OnAnswerSelection { get; set; }
+	[Parameter]
+	public int QuizTheme { get; set; }
+	private int EffectiveLevel { get; set; }
+	public string[] Answers = new string[] { "Answer1", "Answer2", "Answer3", "Answer4" };
+	protected Func<int, bool> CheckAnswer;
+	protected CancellationTokenSource CancellationToken;
+	protected ElementReference AnswerComponent { set => AnswerComponents.Add(value); }
+	protected List<ElementReference> AnswerComponents = new List<ElementReference>();
+	protected ElementReference Board { get; set; }
+	protected ElementReference Title { get; set; }
+	protected ElementReference AnswersGrid { get; set; }
+	protected bool FirstRender = true;
+
+
+	protected override async Task OnInitializedAsync()
+	{
+		Console.WriteLine("OnInitializedAsync");
+
+		//var zero = await numbersAPI.GetMath(CurrentNumber);
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		Console.WriteLine("OnParametersSetAsync");
+		await LoadData();
+	}
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		Console.WriteLine("ON AFER RENDER");
+		FirstRender = firstRender;
+	}
+
+	protected string MaskAnswer(string input) => Regex.Replace(input, @"\d+ is", "Is");
+
+	protected async Task LoadData()
+	{
+		CancellationToken?.Cancel();
+		CancellationToken = new CancellationTokenSource();
+		var trueAnswerRequestTask = QuizTheme == 0 ? numbersAPI.GetMath(TargetLavel, CancellationToken.Token) : numbersAPI.GetTrivia(TargetLavel, CancellationToken.Token);
+		var trueAnswer = await trueAnswerRequestTask;
+		trueAnswer = MaskAnswer(trueAnswer);
+		var mocksRequestTask = QuizTheme == 0 ? numbersAPI.GetManyRandomMath(3, CancellationToken.Token) : numbersAPI.GetManyRandomTrivia(3, CancellationToken.Token);
+		var mocks = (await mocksRequestTask).Select(m => MaskAnswer(m));
+		Random random = new Random();
+		Answers = new string[] { trueAnswer }.Concat(mocks).OrderBy(c => random.Next()).ToArray();
+		CheckAnswer = (int selected) =>
+		{
+			var correctIndex = Array.FindIndex(Answers, (a) => a == trueAnswer);
+			var correct = selected == correctIndex;
+			CorrectionFeedback(correct, selected, correctIndex);
+			return correct;
+		};
+		if (!FirstRender) await JSRuntime.InvokeVoidAsync("elementMethods.addClass", Board, "hide");
+		EffectiveLevel = TargetLavel;
+		await RevealBoard();
+	}
+
+	protected async Task RevealBoard()
+	{
+		Console.WriteLine("Revealing");
+		if (AnswerComponents.Count > 0)
+		{
+			await Task.WhenAll(AnswerComponents.SelectMany(c =>
+			{
+				return new[] { JSRuntime.InvokeVoidAsync("elementMethods.removeClass", c, "right_answer").AsTask(), JSRuntime.InvokeVoidAsync("elementMethods.removeClass", c, "wrong_answer").AsTask() };
+			}));
+		}
+		await Task.WhenAll(new[] { JSRuntime.InvokeVoidAsync("elementMethods.removeClass", Board, "hide").AsTask(), JSRuntime.InvokeVoidAsync("elementMethods.addClass", Board, "enable_pointer_events").AsTask() });
+		await Task.WhenAll(new[] {
+			JSRuntime.InvokeVoidAsync("elementMethods.resetClass", Title, "title_animation").AsTask(),
+			JSRuntime.InvokeVoidAsync("elementMethods.resetClass", AnswersGrid, "answers_animation").AsTask()
+		});
+		Console.WriteLine("Revealed");
+	}
+
+	protected async void CorrectionFeedback(bool isCorrect, int selected, int correctSelection)
+	{
+		await JSRuntime.InvokeVoidAsync("elementMethods.removeClass", Board, "enable_pointer_events");
+		var correctDiv = AnswerComponents[correctSelection];
+		await JSRuntime.InvokeVoidAsync("elementMethods.addClass", correctDiv, "right_answer");
+		if (!isCorrect)
+		{
+			var selectedDiv = AnswerComponents[selected];
+			await JSRuntime.InvokeVoidAsync("elementMethods.addClass", selectedDiv, "wrong_answer");
+		}
+	}
+
+	protected void AnswerClick(MouseEventArgs args, int selectedAnswer)
+	{
+		//var txtContent = await JSRuntime.InvokeAsync<string>("elementMethods.getTextContent", AnswerComponents[selectedAnswer]);
+		var correct = CheckAnswer(selectedAnswer);
+		OnAnswerSelection(correct);
+	}
+}
