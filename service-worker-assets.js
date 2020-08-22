@@ -2,7 +2,7 @@
   "assets": [
     {
       "hash": "sha256-AqlUgi3paUehHoanG3O3imGRZ0nq7n\/vtKj14t6NWVg=",
-      "url": "appsettings.json"
+      "url": "/numbersquiz-blazor/appsettings.json"
     },
     {
       "hash": "sha256-BHNhq10T\/9aejlrFEhS\/NYeYS3Djwv\/pqg2xUjQCx\/s=",
