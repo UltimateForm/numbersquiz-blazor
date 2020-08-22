@@ -1,7 +1,7 @@
 {
   "name": "BlazorApp1",
   "short_name": "BlazorApp1",
-  "start_url": "./",
+  "start_url": "/numbersquiz-blazor/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#03173d",
